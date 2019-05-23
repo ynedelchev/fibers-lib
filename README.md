@@ -125,6 +125,28 @@ sbuf_t shared;
 
 Here `shared` is our shared storage between producers and consumers.
 
+```c
+typedef struct {
+   int buf[BUFF_SIZE];    
+   int in;-------------------------+                
+   int out;------\                 |
+   int full;     |                 |
+   int empty;    |                 |
+} sbuf_t;        |                 |
+                 |                 |
+                 V                 V
+       +---+---+---+-- ... --+---+---+---+
+ buf   |   |   | X |         | X | X |   |
+       +---+---+---+-- ... --+---+---+---+
+ index   0   1   2                    BUFF_SIZE-1
+                
+                 |                 |
+                 \_______   ______/
+                          V
+                         full 
+                     (number of items)
+```
+
 Here is the producer function/routine:
 ```c
 void Producer(void) 
