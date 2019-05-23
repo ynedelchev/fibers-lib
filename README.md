@@ -1,5 +1,19 @@
 Native C Fibres Library
 =======================
+<!-- Please use markdown-toc -i README.md to update the table of contents -->
+<!-- -->
+**Table of Contents**  *generated with [Markdown-TOC](https://www.npmjs.com/package/markdown-toc#install)*
+
+<!-- toc -->
+
+- [Compile](#compile)
+- [Clean](#clean)
+- [What are fibers](#what-are-fibers)
+- [How to use this library](#how-to-use-this-library)
+- [Example (Producer - Consumer Problem)](#example-producer---consumer-problem)
+- [License](#license)
+
+<!-- tocstop -->
 
 Compile
 -------
