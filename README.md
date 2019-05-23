@@ -8,7 +8,7 @@ Use the `Makefile` provided to build the library
    make
 ```
 
-As a result, you would get an object file named `fibres.o`, that you could use to link into your project.
+As a result, you would get an object file named `fibers.o`, that you could use to link into your project.
 
 
 Clean
@@ -18,7 +18,7 @@ To clean all compiler output files and prepare for a clean new build, you may ex
   make clean
 ```
 
-What are fibres
+What are fibers
 ---------------
 Fibres allow single threaded applications to switch context and stop executing one process flow and switching to another. 
 Unlike threads the two process flows cannot run in parallel. It is only when the first one is blocked and thus stops execution, then the other one can continue. 
@@ -26,9 +26,9 @@ Fibers are very suitable for implementation of Producer-Consumer problems and ar
 
 How to use this library
 -----------------------
-First, you need to  include the [fibres.h](https://github.com/ynedelchev/fibers-lib/blob/master/fibres.h) header file into your C program.
+First, you need to  include the [fibers.h](https://github.com/ynedelchev/fibers-lib/blob/master/fibers.h) header file into your C program.
 ````
-#import "fibres.h"
+#import "fibers.h"
 ````
 
 When creating a new fiber, you need to specify the procedure/routine that would be executed when the fiber starts.

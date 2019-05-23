@@ -1,63 +1,119 @@
-#include <ucontext.h>
+#include "fibers.h"
 #include <stdio.h>
-#include <stdlib.h>
+#include <strings.h>
 
 
+#define BUFF_SIZE 5  // total number of slots
+#define NP        1  // total number of producers
+#define NC        1  // total number of consumers
+#define NITERS    4  // number of items produced/consumed
 
-static ucontext_t uctx_main, uctx_func1, uctx_func2;
 
+typedef struct {
+   int buf[BUFF_SIZE];    // shared var
+   int in;                // buf[in  % BUFF_SIZE] is the first empty slot
+   int out;               // buf[out % BUFF_SIZE] is the first full slot
+   int full;              // keep track of the number of full slots
+   int empty;             // keep track of the number of empty slots
+} sbuf_t;
 
-#define handle_error(msg) do {perror(msg); exit(EXIT_FAILURE); } while (0) 
+sbuf_t shared;
 
-static void func1(void) {
-   printf("func1: started\n");
-   printf("func1: swapcontext(&uctx_func1, &uctx_func2)\n");
-   if (swapcontext(&uctx_func1, &uctx_func2) == -1) {
-       handle_error("swapcontext");
+void Producer(void) 
+{
+   int i, item, index;
+   int argi = 0;
+   void* arg = &argi; 
+   printf("Starting Producer %li\n", (long)arg);
+
+   index = (int)arg;
+
+   for (i =0; i < NITERS; i++) {
+      // Produce item.
+	  item = i;
+
+	  // Prepare to write item to buf
+	  // if there are no empty slots, wait
+	  while (shared.empty == 0) {
+	     fiber_yell();
+	  }
+	  // If another thread uses the buffer, wait
+	  shared.buf[shared.in] = item;
+	  shared.in = (shared.in + 1) % BUFF_SIZE;
+	  printf("[P%d] + Producing %d ... \n", index, item);
+	  fflush(stdout);
+	  // Release the buffer
+	  // Increment the number of full slots
+	  shared.full++;
+	  shared.empty--;
+
+	  // Interleave producer and consumer execution
+	  if (i % 2 == 1) {
+	      fiber_yell();
+	  }
    }
-   printf("func1: returning\n");
+   printf("Producer %li ended.\n", (long)arg);
+   fiber_exit();
 }
 
 
-static void func2(void) {
-    printf("func2: started\n");
-	printf("func2: swapcontext(&uctx_func2k, &uctx_func1)\n");
-	if (swapcontext(&uctx_func2, &uctx_func1) == -1) {
-	    handle_error("swapcontext");
-	}
-	printf("func2: returning\n");
+
+void Consumer(void) {
+   // fill in the code here.
+   int i = 0;
+   int argi = 0;
+   void* arg = &argi; 
+   int value = 0;
+   int index = (int)arg;
+   for (i =0; i < NITERS; i++) {
+	  while (shared.full == 0) {
+	     fiber_yell();
+	  }
+	  value = shared.buf[shared.out];
+	  shared.buf[shared.out] = 0;
+	  shared.out = ( shared.out + 1 ) % BUFF_SIZE;
+	  printf("[C%d]   Consuming %d .. with value %d\n", index, i, value);
+	  fflush(stdout);
+	  shared.full--;
+	  shared.empty++;
+	  if (i % 2 == 1) {
+	     fiber_yell();
+	  }
+   }
+   printf("Consumer %li ended.\n", (long)arg);
+   fiber_exit();
 }
+
 
 
 int main(int argc, char* argv[]) {
 
-   char func1_stack[16384];
-   char func2_stack[16384];
+	int index;
 
-   if (getcontext(&uctx_func1) == -1) {
-      handle_error("getcontext");
-   }
-   uctx_func1.uc_stack.ss_sp = func1_stack;
-   uctx_func1.uc_stack.ss_size = sizeof(func1_stack);
-   uctx_func1.uc_link = &uctx_main;
-   makecontext(&uctx_func1, func1, 0);
+	bzero(&shared, sizeof(shared));
+	shared.in  = 0;           // shared.buf[shared.in  % BUFF_SIZE] is the first empty slot
+	shared.out = 0;           // shared.buf[shared.out % BUFF_SIZE] is the first full slot
+	shared.full = 0;          // No full slots
+	shared.empty = BUFF_SIZE; // All slots are empty 
 
+	fiber_t Producers[NP];
+	fiber_t Consumers[NC];
+    
+	bzero(Producers, sizeof(Producers));
+	bzero(Consumers, sizeof(Consumers));
 
-   if (getcontext(&uctx_func2) == -1) {
-      handle_error("getcontext");
-   }
-   uctx_func2.uc_stack.ss_sp = func2_stack;
-   uctx_func2.uc_stack.ss_size = sizeof(func2_stack);
-   // Successor context is f1(), unless argc > 1
-   uctx_func2.uc_link = (argc > 1) ? NULL : &uctx_func1;
-   makecontext(&uctx_func2, func2, 0);
+	for (index = 0; index < NP; index++) {
+	    Producers[index].id = 1000 + index;
+	    // Create new producer 
+		fiber_create(&Producers[index], NULL, Producer);
+	}
 
-   printf("main: swapcontext(&uctx_main, &uctx_func2)");
-   if (swapcontext(&uctx_main, &uctx_func2) == -1) {
-      handle_error("swapcontext");
-   }
-   printf("main: exiting\n");
-   exit(EXIT_SUCCESS);
+	for (index = 0; index < NC; index++) {
+		Consumers[index].id = 2000 + index;
+	    fiber_create(&Consumers[index], NULL, Consumer);
+	}
 
-   return 0;
+    fibers_start_first();
+
+    return 0;
 }
